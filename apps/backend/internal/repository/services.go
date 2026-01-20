@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/mukundaparajuli/fixr/internal/errs"
 	"github.com/mukundaparajuli/fixr/internal/model"
 	"github.com/mukundaparajuli/fixr/internal/model/service"
 	"github.com/mukundaparajuli/fixr/internal/server"
@@ -231,4 +232,74 @@ func (r *ServiceRepository) GetServices(ctx context.Context, userID string, quer
 		TotalPages: (total + *query.Limit - 1) / *query.Limit,
 	}, nil
 
+}
+
+func (r *ServiceRepository) UpdateService(ctx context.Context, userID string, serviceID uuid.UUID, payload *service.UpdateServicePayload) (*service.Service, error) {
+	stmt := `UPDATE services SET`
+	args := pgx.NamedArgs{
+		"id":      serviceID,
+		"user_id": userID,
+	}
+	setClauses := []string{}
+
+	if payload.Name != nil {
+		setClauses = append(setClauses, "name=@name")
+		args["name"] = *payload.Name
+	}
+
+	if payload.Description != nil {
+		setClauses = append(setClauses, "description=@description")
+		args["description"] = *payload.Description
+	}
+
+	if payload.CategoryID != nil {
+		setClauses = append(setClauses, "category_id=@category_id")
+		args["category_id"] = *payload.CategoryID
+	}
+
+	if payload.Metadata != nil {
+		setClauses = append(setClauses, "metadata=@metadata")
+		args["metadata"] = *payload.Metadata
+	}
+
+	if len(setClauses) == 0 {
+		return nil, errs.NewBadRequestError("no fields to update", false, nil, nil, nil)
+	}
+
+	stmt += strings.Join(setClauses, ",")
+	stmt += "where id=@id AND user_id=@user_id"
+
+	rows, err := r.server.DB.Pool.Query(ctx, stmt, args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+
+	updatedService, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[service.Service])
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+
+	return &updatedService, nil
+}
+
+func (r *ServiceRepository) DeleteService(ctx context.Context, userID string, serviceID uuid.UUID) error {
+	stmt := `
+		DELETE FROM services
+		WHERE 
+			id=@serviceID
+			AND user_id=@user_id 	
+	`
+
+	result, err := r.server.DB.Pool.Exec(ctx, stmt, pgx.NamedArgs{
+		"id":         userID,
+		"service_id": serviceID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to execute query : %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		code := "SERVICE_NOT_FOUND"
+		return errs.NewNotFoundError("services not found", false, &code)
+	}
+	return nil
 }
