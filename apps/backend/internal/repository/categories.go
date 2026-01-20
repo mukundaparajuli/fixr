@@ -16,7 +16,7 @@ type CategoryRepository struct {
 	server *server.Server
 }
 
-func NewCategoriesRepository(server *server.Server) *CategoryRepository {
+func NewCategoryRepository(server *server.Server) *CategoryRepository {
 	return &CategoryRepository{server: server}
 }
 

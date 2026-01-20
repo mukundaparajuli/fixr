@@ -10,6 +10,8 @@ import (
 type CreateServicePayload struct {
 	Name            string     `json:"name" validate:"required,min=1,max=100"`
 	Description     *string    `json:"description" validate:"omitempty,min=1,max=255"`
+	Rate            *int       `json:"rate" validate:"min=1"`
+	Method          *Method    `json:"method" validate:"oneof=hourly"`
 	ParentServiceID *uuid.UUID `json:"parentServiceId" validate:"omitempty,uuid"`
 	CategoryID      *uuid.UUID `json:"categoryId" validate:"omitempty,uuid"`
 	Metadata        *Metadata  `json:"metadata"`
